@@ -229,10 +229,12 @@ public class Player {
     		System.out.println("Enemy is "+enemy.unitType());
     		System.out.println("Enemy location is "+enemy.location());
     		System.out.println("Enemy is on map "+enemy.location().isOnMap());
-    		if ( unit.team() != enemy.team() && gc.isAttackReady(unit.id()) && gc.canAttack(unit.id(), enemy.id()) )
+    		/*
+    		if ( gc.isAttackReady(unit.id()) && gc.canAttack(unit.id(), enemy.id()) )
     		{
 				gc.attack(unit.id(), enemy.id());
     		}
+    		*/
     	}
     	//TODO: add in complicated code that backs away after firing
     	return DoRandomMove(unit);
