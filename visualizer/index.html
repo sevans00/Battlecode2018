@@ -1,0 +1,50 @@
+<html>
+<head>
+    <!-- Here's a simple stylesheet to make things look a bit better. -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <h1>bc18-tinyviewer</h1>
+    <div>
+        <label for="fname">If you're hosting the website locally:</label>
+        <input id="fname" placeholder="filepath"/>
+    </div>
+    <div>
+        <label for="ffile">Upload a file:</label>
+        <input id="ffile" type="file"/>
+    </div>
+    <div id="loading"></div>
+    <div>
+        <label for="timeout">Set time delay per turn (ms):</label>
+        <input id="timeout" placeholder="timeout" min="1" type="number"/>
+    </div>
+    <div>
+        <label for="turnslider">Go to turn #:</label>
+        <input id="turnslider" type="range" min="1"/>
+        <button id="pause">Pause</button>
+        <button id="reset">Reset</button>
+    </div>
+    <h2 id="winner"></h2>
+    <div class="viewer">
+        <div class="info">
+            <h3 style="text-align:center;">Turn: #<span id="turn"></span></h3>
+            <div id="infoRed" class="info">
+                <h3 style="text-align:center; color:#F00">Red</h3>
+                <p class="property">Karbonite: <span id="red_karbonite"></span></p>
+            </div>
+            <div id="infoBlue" class="info">
+                <h3 style="text-align:center; color:#00F">Blue</h3>
+                <p class="property">Karbonite: <span id="blue_karbonite"></span></p>
+            </div>
+        </div>
+        <div class="maps">
+            <canvas id="earth" width=500 height=500 style="border: 1px solid #000"></canvas>
+            <canvas id="mars" width=500 height=500 style="border: 1px solid #000"></canvas>
+        </div>
+    </div>
+
+<script src="script.js"></script>
+
+</body>
+</html>

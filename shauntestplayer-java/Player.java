@@ -5,7 +5,11 @@ import java.util.Random;
 
 import bc.*;
 
+
+
 public class Player {
+	
+	
 	public static GameController gc;
 	
 	public static Team friendlyTeam = Team.Red;
@@ -24,6 +28,8 @@ public class Player {
 	
 	public static MapLocation someMapLoc = null;
     
+	
+	public static DirectionField karbomiteDirectionField;
 	
     public static void main(String[] args) {
         // MapLocation is a data structure you'll use a lot.
@@ -45,6 +51,7 @@ public class Player {
 		if (friendlyTeam == Team.Blue)
 		    enemyTeam = Team.Red;
         
+		
         
         while (true) {
             System.out.println("Current round: "+gc.round());
@@ -113,7 +120,7 @@ public class Player {
             //Do catchup section:
             
             //Minimum number of workers:
-            if ( workers.size() < 5 && gc.karbonite() > bc.costOf(UnitType.Worker, 1) )
+            if ( workers.size() < 5 && gc.karbonite() > bc.bcUnitTypeReplicateCost(UnitType.Worker) )
             {
             	for (Unit unit : workers)
             	{
@@ -124,7 +131,7 @@ public class Player {
             
             //Minimum number of factories:
             if (gc.karbonite() > bc.bcUnitTypeBlueprintCost(UnitType.Factory)
-            		&& (factories.size() < 2 || gc.karbonite() > 300 ) )
+            		&& (factories.size() < 4 || gc.karbonite() > 300 ) )
             {
                 for (Unit unit : workers)
                 {
@@ -159,11 +166,20 @@ public class Player {
 					}
 				}
 				//Build:
-				if ( gc.canProduceRobot(unit.id(), UnitType.Knight))
-				{
-					gc.produceRobot(unit.id(), UnitType.Knight);
-                    System.out.println("produced a knight!");
-                    continue;
+				if ( Math.random() < 0.5f ){
+					if ( gc.canProduceRobot(unit.id(), UnitType.Knight))
+					{
+						gc.produceRobot(unit.id(), UnitType.Knight);
+	                    System.out.println("produced a knight!");
+	                    continue;
+					}
+				} else {
+					if ( gc.canProduceRobot(unit.id(), UnitType.Ranger))
+					{
+						gc.produceRobot(unit.id(), UnitType.Ranger);
+	                    System.out.println("produced a ranger!");
+	                    continue;
+					}
 				}
 			}
             
@@ -179,32 +195,11 @@ public class Player {
             for (Unit unit : knights) {
             	DoKnight(unit);
 			}
+            for ( Unit unit : rangers) {
+            	DoRanger(unit);
+            }
             
-            /*
-                Unit unit = units.get(ii);
-                
-                if ( unit.unitType() == UnitType.Factory )
-                {
-                	garrison = unit.structureGarrison();
-                	
-                }
-                
-                
-                if ( unit.unitType() == UnitType.Worker )
-                {
-                	
-                }
-                
-                
-                // Most methods on gc take unit IDs, instead of the unit objects themselves.
-                if (gc.isMoveReady(unit.id()) && gc.canMove(unit.id(), Direction.Southeast)) {
-                	if (Math.random() > 0.5f)
-                		gc.moveRobot(unit.id(), Direction.Southeast);
-                	else
-                		gc.moveRobot(unit.id(), Direction.Northwest);
-                	
-                }
-            }*/
+            
             // Submit the actions we've done, and wait for our next turn.
             gc.nextTurn();
         }
@@ -219,24 +214,11 @@ public class Player {
     	Unit enemy = GetClosestUnitFrom(unit, enemies);
     	if ( enemy == null )
     	{
-    		return DoRandomMove(unit);
+    		return DoMoveTowardsEnemySpawn(unit);
     	}
     	
     	if ( unit.location().mapLocation().isWithinRange(unit.attackRange(), enemy.location().mapLocation() ) )
     	{
-    		System.out.println(unit.id() + " Trying to attack: "+enemy.id() + "Can we attack?");
-    		System.out.println("Enemy is "+enemy.unitType());
-    		System.out.println("Enemy location is "+enemy.location());
-    		System.out.println("Enemy is on map "+enemy.location().isOnMap());
-    		System.out.println( "Is attack ready? " + gc.isAttackReady(unit.id()));
-    		//System.out.println( "Can attack? " + gc.canAttack(unit.id(), enemy.id()) );
-    		System.out.println("Enemy is: "+ enemy);
-    		System.out.println("Enemy hp: "+enemy.health());
-    		System.out.println("Enemy status: "+enemy);
-    		System.out.println("GC: can sense unit: "+gc.canSenseUnit(enemy.id()));
-    		System.out.println("GC can sense location: "+gc.canSenseLocation(enemy.location().mapLocation()));
-    		//System.out.println("Enemy health:" + gc.unit(enemy.id()));
-    		
     		if ( gc.isAttackReady(unit.id()) && gc.canSenseUnit(enemy.id()) && gc.canAttack(unit.id(), enemy.id()) )
     		{
     			System.out.println("Attack!!!! "+unit +" "+enemy);
@@ -244,11 +226,43 @@ public class Player {
     		}
     	}
     	
-    	DoMoveTowards(unit, enemy);
-    	
+    	TryMoveTowards(unit, enemy);
     	
     	//TODO: add in complicated code that backs away after firing
-    	return DoRandomMove(unit);
+    	return DoMoveTowardsEnemySpawn(unit);
+    }
+    
+    public static boolean DoRanger(Unit unit)
+    {
+    	if ( !unit.location().isOnMap() )
+    		return false;
+    	
+    	Unit enemy = GetClosestUnitFrom(unit, enemies);
+    	if ( enemy == null )
+    	{
+    		return DoMoveTowardsEnemySpawn(unit);
+    	}
+    	
+    	MapLocation unitLocation = unit.location().mapLocation();
+    	MapLocation enemyLocation = enemy.location().mapLocation();
+    	long distanceSquaredTo = unitLocation.distanceSquaredTo(enemyLocation);
+    	Direction directionTo = unitLocation.directionTo(enemyLocation);
+    	if ( distanceSquaredTo <= unit.rangerCannotAttackRange() )
+    	{
+    		TryMoveLoose(unit, bc.bcDirectionOpposite(directionTo), 2);
+    	}
+    	
+    	if ( unit.location().mapLocation().isWithinRange(unit.attackRange(), enemy.location().mapLocation() ) )
+    	{
+    		if ( gc.isAttackReady(unit.id()) && gc.canSenseUnit(enemy.id()) && gc.canAttack(unit.id(), enemy.id()) )
+    		{
+    			System.out.println("Attack!!!! "+unit +" "+enemy);
+				gc.attack(unit.id(), enemy.id());
+    		}
+    		return false;
+    	}
+    	
+    	return TryMoveTowards(unit, enemy);
     }
     
     
@@ -269,7 +283,7 @@ public class Player {
     		}
     		else
     		{
-    			DoMoveTowards(unit, closestFactoryNeedsHealing);
+    			TryMoveTowards(unit, closestFactoryNeedsHealing);
     			DoWorkerRepairBuild(unit, closestFactoryNeedsHealing);
     		}
     	}
@@ -353,13 +367,41 @@ public class Player {
     }
     
     
-    public static boolean DoMoveTowards(Unit unit, Unit target)
+    public static boolean TryMoveTowards(Unit unit, Unit target)
     {
     	Direction direction = unit.location().mapLocation().directionTo(target.location().mapLocation());
-    	return DoMoveTowards(unit, direction);
+    	return TryBugMove(unit, direction);
     }
     
-    public static boolean DoMoveTowards(Unit unit, Direction direction)
+    public static boolean TryMoveLoose(Unit unit, Direction direction, int tolerance)
+    {
+    	if ( !gc.isMoveReady(unit.id()))
+    		return false;
+    	if ( TryMoveStrict(unit, direction))
+    		return false;
+    	Direction left = direction;
+    	Direction right = direction;
+    	for ( int ii = 1; ii < tolerance; ii++)
+    	{
+    		left = bc.bcDirectionRotateLeft(left);
+    		right = bc.bcDirectionRotateRight(right);
+    		if ( TryMoveStrict(unit, left) || TryMoveStrict(unit, right))
+    			return true;
+    	}
+    	return false;
+    }
+    
+    public static boolean TryMoveStrict(Unit unit, Direction direction)
+    {
+    	if ( gc.isMoveReady(unit.id()) && gc.canMove(unit.id(), direction)) {
+    		gc.moveRobot(unit.id(), direction);
+    		return true;
+    	}
+    	return false;
+    }
+    
+    
+    public static boolean TryBugMove(Unit unit, Direction direction)
     {
     	if ( !gc.isMoveReady(unit.id()) )
     		return false;
@@ -377,6 +419,28 @@ public class Player {
 			}
     	}
     	return false;
+    }
+    
+    public static boolean DoMoveTowardsEnemySpawn(Unit unit)
+    {
+    	PlanetMap map = gc.startingMap(Planet.Earth);
+    	VecUnit initialUnits = map.getInitial_units();
+    	Unit startingEnemy = null;
+    	for(int ii = 0; ii < initialUnits.size(); ii ++)
+    	{
+    		Unit initialUnit = initialUnits.get(ii);
+    		if ( initialUnit.team() == enemyTeam )
+    		{
+    			startingEnemy = initialUnit;
+    			break;
+    		}
+    	}
+    	Direction direction = unit.location().mapLocation().directionTo(startingEnemy.location().mapLocation());
+    	if ( TryMoveLoose(unit, direction, 2) )
+    	{
+    		return true;
+    	}
+    	return DoRandomMove(unit);
     }
     
     public static boolean DoRandomMove(Unit unit)
