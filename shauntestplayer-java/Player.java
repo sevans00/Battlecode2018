@@ -159,9 +159,9 @@ public class Player {
 					}
 				}
 				//Build:
-				if ( gc.canProduceRobot(unit.id(), UnitType.Knight))
+				if ( gc.canProduceRobot(unit.id(), UnitType.Ranger))
 				{
-					gc.produceRobot(unit.id(), UnitType.Knight);
+					gc.produceRobot(unit.id(), UnitType.Ranger);
                     System.out.println("produced a knight!");
                     continue;
 				}
@@ -176,7 +176,7 @@ public class Player {
             }
             
             //Knights:
-            for (Unit unit : knights) {
+            for (Unit unit : rangers) {
             	DoKnight(unit);
 			}
             
@@ -222,20 +222,27 @@ public class Player {
     		return DoRandomMove(unit);
     	}
     	
-    	DoMoveTowards(unit, enemy);
     	if ( unit.location().mapLocation().isWithinRange(unit.attackRange(), enemy.location().mapLocation() ) )
     	{
     		System.out.println(unit.id() + " Trying to attack: "+enemy.id() + "Can we attack?");
     		System.out.println("Enemy is "+enemy.unitType());
     		System.out.println("Enemy location is "+enemy.location());
     		System.out.println("Enemy is on map "+enemy.location().isOnMap());
-    		/*
+    		System.out.println( "Is attack ready? " + gc.isAttackReady(unit.id()));
+    		//System.out.println( "Can attack? " + gc.canAttack(unit.id(), enemy.id()) );
+    		System.out.println(enemy);
+    		System.out.println("Enemy health:" + gc.unit(enemy.id()));
+    		
     		if ( gc.isAttackReady(unit.id()) && gc.canAttack(unit.id(), enemy.id()) )
     		{
+    			System.out.println("Attack!!!! "+unit +" "+enemy);
 				gc.attack(unit.id(), enemy.id());
     		}
-    		*/
     	}
+    	
+    	DoMoveTowards(unit, enemy);
+    	
+    	
     	//TODO: add in complicated code that backs away after firing
     	return DoRandomMove(unit);
     }
