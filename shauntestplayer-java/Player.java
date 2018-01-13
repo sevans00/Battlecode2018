@@ -99,7 +99,7 @@ public class Player {
             if ( someMapLoc != null )
             {
             	VecUnit enemyVecUnit = gc.units();
-            	System.out.println("Enemies sensed:" + enemies.size());
+            	System.out.println("Enemies sensed:" + enemyVecUnit.size());
                 for ( int ii = 0; ii < enemyVecUnit.size(); ii++ )
                 {
                 	Unit enemy = enemyVecUnit.get(ii);
@@ -159,9 +159,9 @@ public class Player {
 					}
 				}
 				//Build:
-				if ( gc.canProduceRobot(unit.id(), UnitType.Ranger))
+				if ( gc.canProduceRobot(unit.id(), UnitType.Knight))
 				{
-					gc.produceRobot(unit.id(), UnitType.Ranger);
+					gc.produceRobot(unit.id(), UnitType.Knight);
                     System.out.println("produced a knight!");
                     continue;
 				}
@@ -176,7 +176,7 @@ public class Player {
             }
             
             //Knights:
-            for (Unit unit : rangers) {
+            for (Unit unit : knights) {
             	DoKnight(unit);
 			}
             
@@ -230,10 +230,14 @@ public class Player {
     		System.out.println("Enemy is on map "+enemy.location().isOnMap());
     		System.out.println( "Is attack ready? " + gc.isAttackReady(unit.id()));
     		//System.out.println( "Can attack? " + gc.canAttack(unit.id(), enemy.id()) );
-    		System.out.println(enemy);
-    		System.out.println("Enemy health:" + gc.unit(enemy.id()));
+    		System.out.println("Enemy is: "+ enemy);
+    		System.out.println("Enemy hp: "+enemy.health());
+    		System.out.println("Enemy status: "+enemy);
+    		System.out.println("GC: can sense unit: "+gc.canSenseUnit(enemy.id()));
+    		System.out.println("GC can sense location: "+gc.canSenseLocation(enemy.location().mapLocation()));
+    		//System.out.println("Enemy health:" + gc.unit(enemy.id()));
     		
-    		if ( gc.isAttackReady(unit.id()) && gc.canAttack(unit.id(), enemy.id()) )
+    		if ( gc.isAttackReady(unit.id()) && gc.canSenseUnit(enemy.id()) && gc.canAttack(unit.id(), enemy.id()) )
     		{
     			System.out.println("Attack!!!! "+unit +" "+enemy);
 				gc.attack(unit.id(), enemy.id());
