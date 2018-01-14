@@ -51,10 +51,21 @@ public class Player {
 		if (friendlyTeam == Team.Blue)
 		    enemyTeam = Team.Red;
         
+		PlanetMap earthMap = gc.startingMap(Planet.Earth);
+		VecUnit initialUnits = earthMap.getInitial_units();
+		ArrayList<MapLocation> initialUnitLocations = new ArrayList<MapLocation>();
+		for(int ii = 0; ii < initialUnits.size(); ii ++)
+    	{
+			if (initialUnits.get(ii).team() == enemyTeam) {
+				initialUnitLocations.add(initialUnits.get(ii).location().mapLocation());
+			}
+    	}
 		
+		DirectionField startingUnitLocationField = new DirectionField(earthMap);
+		startingUnitLocationField.SetupDirectionFieldTowards(initialUnitLocations);
         
         while (true) {
-            System.out.println("Current round: "+gc.round());
+        	System.out.println("Current round: "+gc.round());
             // VecUnit is a class that you can think of as similar to ArrayList<Unit>, but immutable.
             VecUnit units = gc.myUnits();
             
@@ -166,6 +177,13 @@ public class Player {
 					}
 				}
 				//Build:
+				if ( workers.size() <= 1 && gc.canProduceRobot(unit.id(), UnitType.Worker) )
+				{
+					gc.produceRobot(unit.id(), UnitType.Worker);
+                    System.out.println("produced an emergency worker!");
+                    continue;
+				}
+				
 				if ( Math.random() < 0.5f ){
 					if ( gc.canProduceRobot(unit.id(), UnitType.Knight))
 					{

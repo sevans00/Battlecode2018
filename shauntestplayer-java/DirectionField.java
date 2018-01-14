@@ -1,6 +1,8 @@
 // import the API.
 // See xxx for the javadocs.
 import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.Queue;
 import java.util.Random;
 import java.util.Stack;
 
@@ -9,10 +11,17 @@ import bc.*;
 
 
 public class DirectionField {
+	
 	public class Entry
 	{
 		public int distance = -1;
 		public Direction direction = Direction.Center;
+		public MapLocation mapLocation = null;
+		
+		public Entry(MapLocation mapLocation)
+		{
+			this.mapLocation = mapLocation;
+		}
 	}
 	
 	public PlanetMap map;
@@ -28,39 +37,114 @@ public class DirectionField {
 		
 		entries = new Entry[width][height];
 		
+		MapLocation mapLocation = null;
 		for(int ii = 0; ii < width; ii++ )
 		{
 			for(int jj = 0; jj < height; jj++ )
 			{
-				entries[ii][jj] = new Entry();
+				mapLocation = new MapLocation(map.getPlanet(), ii, jj);
+				entries[ii][jj] = new Entry(mapLocation);
 			}
 		}
 	}
 	
-	public Stack<Entry> locationStack;
-	
-	public void SetupDirectionField( ArrayList<MapLocation> targets)
+	public void SetupDirectionFieldTowards( ArrayList<MapLocation> targets)
 	{
-		locationStack = new Stack<Entry>();
+		Queue<Entry> locationStack = new LinkedList<Entry>();
 		for(MapLocation target : targets)
 		{
 			Entry entry = entries[target.getX()][target.getY()];
 			entry.distance = 0;
-			locationStack.push(entry);
+			locationStack.add(entry);
 		}
 		
 		Entry target;
 		while(!locationStack.isEmpty())
 		{
-			target = locationStack.pop();
+			target = locationStack.poll();
+			
+			int newDistance = target.distance + 1;
 			
 			//Evaluate all locations adjacent to the target:
-			
-			
-			
+			for (Direction direction : Direction.values())
+			{
+				Direction directionToTarget = bc.bcDirectionOpposite(direction);
+				MapLocation testLocation = target.mapLocation.add(direction);
+				
+				newDistance = (int) (target.distance + target.mapLocation.distanceSquaredTo(testLocation));
+				
+				
+				if ( !map.onMap(testLocation) || map.isPassableTerrainAt(testLocation) == 0) //We've gone off the map!
+					continue;
+				
+				Entry testEntry = entries[testLocation.getX()][testLocation.getY()];
+				
+				if ( testEntry.distance == -1 ) //We haven't tested this square!
+				{
+					testEntry.direction = directionToTarget;
+					testEntry.distance = newDistance;
+					locationStack.add(testEntry);
+				}
+				if ( testEntry.distance > newDistance ) //We've evaluated this one already, but we found a shortcut!
+				{
+					testEntry.distance = newDistance;
+					testEntry.direction = directionToTarget;
+					locationStack.add(testEntry);
+				}
+			}
 		}
-		
-		
 	}
-	   
+	
+	public void DebugPrintDistances()
+	{
+		System.out.println();
+		for(int jj = height - 1; jj >= 0; jj-- )
+		{
+			for(int ii = 0; ii < width; ii++ )
+			{
+				System.out.print( String.format("%1$4s",entries[ii][jj].distance) );
+			}
+			System.out.println();
+		}
+	}
+	
+	public void DebugPrintDirections()
+	{
+		System.out.println();
+		for(int jj = height - 1; jj >= 0; jj-- )
+		{
+			for(int ii = 0; ii < width; ii++ )
+			{
+				
+				System.out.print( DirectionToString(entries[ii][jj].direction ));
+			}
+			System.out.println();
+		}
+	}
+	
+	private String DirectionToString(Direction direction)
+	{
+		switch (direction)
+		{
+		case North:
+			return " ^ ";
+		case South:
+			return " . ";
+		case East:
+			return " ->";
+		case West:
+			return "<- ";
+		case Northeast:
+			return " / ";
+		case Northwest:
+			return " \\ ";
+		case Southeast:
+			return " \\.";
+		case Southwest:
+			return "./ ";
+		default:
+			break;
+		}
+		return "   ";
+	}
 }
