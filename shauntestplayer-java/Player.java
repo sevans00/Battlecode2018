@@ -153,7 +153,7 @@ public class Player {
             	if ( unit.health() < unit.maxHealth() )
             		factoriesToHeal.add(unit);
             	
-            	
+            	//Ungarrison:
 				VecUnitID garrison = unit.structureGarrison();
 				if ( garrison.size() > 0 )
 				{
