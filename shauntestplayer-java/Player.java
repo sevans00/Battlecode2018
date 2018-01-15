@@ -25,20 +25,12 @@ public class Player {
 	public static ArrayList<Unit> workers = new ArrayList<Unit>();
 	
 	public static ArrayList<Unit> enemies = new ArrayList<Unit>();
+	public static ArrayList<MapLocation> enemyLocations = new ArrayList<MapLocation>();
 	
 	
     
 	
     public static void main(String[] args) {
-        // MapLocation is a data structure you'll use a lot.
-        MapLocation loc = new MapLocation(Planet.Earth, 10, 20);
-        System.out.println("loc: "+loc+", one step to the Northwest: "+loc.add(Direction.Northwest));
-        System.out.println("loc x: "+loc.getX());
-        
-        // One slightly weird thing: some methods are currently static methods on a static class called bc.
-        // This will eventually be fixed :/
-        System.out.println("Opposite of " + Direction.North + ": " + bc.bcDirectionOpposite(Direction.North));
-        
         
         // Connect to the manager, starting the game
         gc = new GameController();
@@ -46,21 +38,22 @@ public class Player {
         friendlyTeam = gc.team();
 		if (friendlyTeam == Team.Blue)
 		    enemyTeam = Team.Red;
+		System.out.println("Friendly Team "+friendlyTeam + " Enemy: "+enemyTeam);
         
-
+		
 		//Setup Direction Fields:
-		PlanetMap earthMap = gc.startingMap(Planet.Earth);
+		PlanetMap earthMap = gc.startingMap(gc.planet());
 		VecUnit initialUnits = earthMap.getInitial_units();
-		ArrayList<MapLocation> initialUnitLocations = new ArrayList<MapLocation>();
+		ArrayList<MapLocation> initialEnemyUnitLocations = new ArrayList<MapLocation>();
 		for(int ii = 0; ii < initialUnits.size(); ii ++)
     	{
 			if (initialUnits.get(ii).team() == enemyTeam) {
-				initialUnitLocations.add(initialUnits.get(ii).location().mapLocation());
+				initialEnemyUnitLocations.add(initialUnits.get(ii).location().mapLocation());
 			}
     	}
 		
 		DirectionField startingUnitLocationField = new DirectionField(earthMap);
-		startingUnitLocationField.SetupDirectionFieldTowards(initialUnitLocations);
+		startingUnitLocationField.SetupDirectionFieldTowards(initialEnemyUnitLocations);
 		
 		WeightedField initialKarbomiteField = new WeightedField(earthMap);
 		initialKarbomiteField.SetupDirectionFieldTowardsKarbomite();
@@ -89,7 +82,6 @@ public class Player {
         	ArrayList<Unit> friendlyUnitsOnMap = new ArrayList<Unit>();
         	ArrayList<Unit> friendlyBuildings = new ArrayList<Unit>();
         	
-        	enemies = new ArrayList<Unit>();
             
             for (int ii = 0; ii < units.size(); ii++) 
             {
@@ -128,18 +120,31 @@ public class Player {
             //End basic units arraylist population
             
             //Sense enemies:
+            enemies = new ArrayList<Unit>();
+        	enemyLocations = new ArrayList<MapLocation>();
         	VecUnit enemyVecUnit = gc.units();
-        	System.out.println("Enemies sensed:" + enemyVecUnit.size());
             for ( int ii = 0; ii < enemyVecUnit.size(); ii++ )
             {
             	Unit enemy = enemyVecUnit.get(ii);
             	if ( enemy.team() == enemyTeam && enemy.location().isOnMap() )
+            	{
             		enemies.add(enemy);
+            		enemyLocations.add(enemy.location().mapLocation());
+            	}
             }
+        	System.out.println("Enemies sensed:" + enemyLocations.size());
+        	if ( enemyLocations.size() == 0 )
+        	{
+        		for ( int ii = 0; ii < initialEnemyUnitLocations.size(); ii++ )
+        		{
+        			enemyLocations.addAll(initialEnemyUnitLocations);
+        		}
+        	}
             
             //Enemy Field:
             DirectionField enemyField = new DirectionField(earthMap);
-            enemyField.SetupDirectionFieldTowardsUnits(enemies);
+            enemyField.SetupDirectionFieldTowards(enemyLocations);
+            
             
             
             //Buildings:
@@ -148,6 +153,7 @@ public class Player {
             //Building field:
             DirectionField friendlyBuildingField = new DirectionField(earthMap);
             friendlyBuildingField.SetupDirectionFieldTowardsUnits(friendlyBuildings);
+            
             
             
             
@@ -162,6 +168,71 @@ public class Player {
             			break;
             	}
             }
+            
+            //Minimum number of rockets:
+            if ( gc.karbonite() > bc.bcUnitTypeBlueprintCost(UnitType.Rocket) && rockets.size() < 2 && gc.planet() == Planet.Earth)
+            {
+            	for (Unit unit : workers)
+                {
+            		Direction direction = getCanBlueprintDirection(unit, UnitType.Rocket);
+            		if ( 	direction != null  
+            				&& gc.canBlueprint(unit.id(), UnitType.Rocket, direction) )
+            		{
+            			gc.blueprint(unit.id(), UnitType.Rocket, direction);
+            			break; //No reason why we can't build more
+            		}
+                }
+            }
+            //Rockets:
+            for ( Unit unit : rockets )
+            {
+            	if ( unit.health() < unit.maxHealth() )
+            		factoriesToHeal.add(unit);
+            	
+            	if ( gc.planet() == Planet.Earth)
+            	{
+            		//Launch!
+	            	if ( unit.structureGarrison().size() > 0 )
+	            	{
+	            		System.out.println("GARISONED UNIT!");
+	            		MapLocation destination = GetLandingZoneOnMars();
+	            		if ( gc.canLaunchRocket(unit.id(), destination) )
+	            		{
+	            			System.out.println("LAUNCH ROCKET!");
+	            			gc.launchRocket(unit.id(), destination);
+	            		}
+	            	}
+	            	else {
+	            		//Load a worker
+	                	Unit rocket = rockets.get(0);
+	                	Unit worker = GetClosestUnitFrom(rocket, workers);
+	                	if ( worker != null )
+	                	{
+	    	            	TryMoveTowards(worker, rocket);
+	    	            	if ( gc.canLoad(rocket.id(), worker.id()) )
+	    	            	{
+	    	            		gc.load(rocket.id(), worker.id());
+	    	            	}
+	                	}
+	            	}
+            	} else {
+    				VecUnitID garrison = unit.structureGarrison();
+    				if ( garrison.size() > 0 )
+    				{
+    					Direction freeDirection = getNextUnloadDirection(unit);
+    					if ( freeDirection != null )
+    					{
+    						System.out.println("Unloaded a unit ON MARS!");
+    						gc.unload(unit.id(), freeDirection);
+    					}
+    				}
+            	}
+            }
+            
+            
+            
+            
+            System.out.println("Factories: "+factories.size()+" on "+gc.planet());
             
             //Minimum number of factories:
             if (gc.karbonite() > bc.bcUnitTypeBlueprintCost(UnitType.Factory)
@@ -179,6 +250,7 @@ public class Player {
             		}
                 }
             }
+            
             
             
             //Factories:
@@ -262,7 +334,8 @@ public class Player {
 	        		TryMoveToFieldDistance(unit, friendlyBuildingField, distanceToKeepFromBuildings);
 	        		continue;
 	        	}
-	        	
+	        	TryMoveToFieldDistance(unit, friendlyBuildingField, distanceToKeepFromBuildings);
+	        	/*
 	        	//How close is the enemy?
 	        	int enemyDistance = (int) unit.location().mapLocation().distanceSquaredTo(enemy.location().mapLocation());
 	        	if ( enemyDistance <= 50 + 2 || enemyDistance <= unit.rangerCannotAttackRange() )
@@ -274,12 +347,12 @@ public class Player {
 	        	{
 	        		TryMoveToFieldDistance(unit, friendlyBuildingField, distanceToKeepFromBuildings);
 	        	}
+	        	*/
 	        	
 	        	if ( unit.location().mapLocation().isWithinRange(unit.attackRange(), enemy.location().mapLocation() ) )
 	        	{
 	        		if ( gc.isAttackReady(unit.id()) && gc.canSenseUnit(enemy.id()) && gc.canAttack(unit.id(), enemy.id()) )
 	        		{
-	        			System.out.println("Attack!!!! "+unit +" "+enemy);
 	    				gc.attack(unit.id(), enemy.id());
 	        		}
 	        	}
@@ -295,6 +368,14 @@ public class Player {
             gc.nextTurn();
         }
     }
+    
+    
+    public static boolean TryMoveAlongField(Unit unit, DirectionField field)
+    {
+    	
+    	return false;
+    }
+    
     
     public static boolean TryMoveToFieldDistance(Unit unit, DirectionField friendlyBuildingField, int distanceToKeepFromBuildings)
     {
@@ -474,6 +555,8 @@ public class Player {
     	for( int ii = 1; ii < units.size(); ii++ )
     	{
     		testUnit = units.get(ii);
+    		if ( !testUnit.location().isOnMap() )
+    			continue;
     		testDistance = unit.location().mapLocation().distanceSquaredTo(testUnit.location().mapLocation());
     		if ( testDistance < closestDistance )
     		{
@@ -550,7 +633,7 @@ public class Player {
     
     public static boolean DoMoveTowardsEnemySpawn(Unit unit)
     {
-    	PlanetMap map = gc.startingMap(Planet.Earth);
+    	PlanetMap map = gc.startingMap(gc.planet());
     	VecUnit initialUnits = map.getInitial_units();
     	Unit startingEnemy = null;
     	for(int ii = 0; ii < initialUnits.size(); ii ++)
@@ -600,6 +683,23 @@ public class Player {
     	for (Direction direction : Direction.values())
     		if ( gc.canBlueprint(unit.id(), unitType, direction) )
     			return direction;
+    	return null;
+    }
+    
+    public static MapLocation GetLandingZoneOnMars()
+    {
+    	PlanetMap mars = gc.startingMap(Planet.Mars);
+    	for(int ii = 0; ii < mars.getWidth(); ii++ )
+    	{
+    		for(int jj = 0; jj < mars.getHeight(); jj++ )
+    		{
+    			MapLocation location = new MapLocation(Planet.Mars, ii, jj);
+    			if ( mars.isPassableTerrainAt(location) == 1 )
+    			{
+    				return location;
+    			}
+    		}
+    	}
     	return null;
     }
     

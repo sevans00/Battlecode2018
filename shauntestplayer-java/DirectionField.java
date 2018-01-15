@@ -81,9 +81,6 @@ public class DirectionField {
 				Direction directionToTarget = bc.bcDirectionOpposite(direction);
 				MapLocation testLocation = target.mapLocation.add(direction);
 				
-				newDistance = (int) (target.distance + target.mapLocation.distanceSquaredTo(testLocation));
-				
-				
 				if ( !map.onMap(testLocation) || map.isPassableTerrainAt(testLocation) == 0) //We've gone off the map!
 					continue;
 				
