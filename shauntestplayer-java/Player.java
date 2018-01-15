@@ -66,6 +66,9 @@ public class Player {
 		initialKarbomiteField.SetupDirectionFieldTowardsKarbomite();
         
 		
+		gc.queueResearch(UnitType.Rocket);
+		
+		
 		//Main Turn Loop:
         while (true) 
         {
@@ -83,11 +86,20 @@ public class Player {
         	rockets = new ArrayList<Unit>();
         	workers = new ArrayList<Unit>();
         	
+        	ArrayList<Unit> friendlyUnitsOnMap = new ArrayList<Unit>();
+        	ArrayList<Unit> friendlyBuildings = new ArrayList<Unit>();
+        	
         	enemies = new ArrayList<Unit>();
             
             for (int ii = 0; ii < units.size(); ii++) 
             {
                 Unit unit = units.get(ii);
+                if ( unit.location().isOnMap() )
+                	friendlyUnitsOnMap.add(unit);
+                
+            	if ( !unit.location().isOnMap() )
+            		continue;
+                
                 switch (unit.unitType()) {
 				case Factory:
 					factories.add(unit);
@@ -129,6 +141,13 @@ public class Player {
             DirectionField enemyField = new DirectionField(earthMap);
             enemyField.SetupDirectionFieldTowardsUnits(enemies);
             
+            
+            //Buildings:
+            friendlyBuildings.addAll(factories);
+            friendlyBuildings.addAll(rockets);
+            //Building field:
+            DirectionField friendlyBuildingField = new DirectionField(earthMap);
+            friendlyBuildingField.SetupDirectionFieldTowardsUnits(friendlyBuildings);
             
             
             
@@ -196,9 +215,9 @@ public class Player {
 	                    continue;
 					}
 				} else {
-					if ( gc.canProduceRobot(unit.id(), UnitType.Ranger))
+					if ( gc.canProduceRobot(unit.id(), UnitType.Knight))
 					{
-						gc.produceRobot(unit.id(), UnitType.Ranger);
+						gc.produceRobot(unit.id(), UnitType.Knight);
 	                    System.out.println("produced a ranger!");
 	                    continue;
 					}
@@ -206,16 +225,14 @@ public class Player {
 			}
             
             
-            for (Unit unit : mages)
-            {
-            	DoKnight(unit);
-            }
-            
             //Workers:
             for (Unit unit : workers) 
             {
             	DoWorker(unit);
             }
+            
+            /*
+            //Regular aggression:
             
             //Knights:
             for (Unit unit : knights) {
@@ -224,11 +241,72 @@ public class Player {
             for ( Unit unit : rangers) {
             	DoRanger(unit);
             }
+            */
             
+            //Defensive:
+            ArrayList<Unit> defensiveKnights = new ArrayList<Unit>();
+            for( Unit unit : knights )
+            {
+            	if ( unit.location().isOnMap() )
+            		continue;
+            	defensiveKnights.add(unit);
+            }
+            
+            int numKnights = knights.size();
+            int distanceToKeepFromBuildings = 4;
+            for ( Unit unit : knights ) 
+            {
+            	Unit enemy = GetClosestUnitFrom(unit, enemies);
+	        	if ( enemy == null )
+	        	{
+	        		//
+	        		TryMoveToFieldDistance(unit, friendlyBuildingField, distanceToKeepFromBuildings);
+	        		continue;
+	        	}
+	        	
+	        	//How close is the enemy?
+	        	int enemyDistance = (int) unit.location().mapLocation().distanceSquaredTo(enemy.location().mapLocation());
+	        	if ( enemyDistance <= 50 + 2 )
+	        	{
+	        		//Charge!
+		        	TryMoveTowards(unit, enemy); //TODO: Calculate this for all
+	        	}
+	        	else 
+	        	{
+	        		TryMoveToFieldDistance(unit, friendlyBuildingField, distanceToKeepFromBuildings);
+	        	}
+	        	
+	        	if ( unit.location().mapLocation().isWithinRange(unit.attackRange(), enemy.location().mapLocation() ) )
+	        	{
+	        		if ( gc.isAttackReady(unit.id()) && gc.canSenseUnit(enemy.id()) && gc.canAttack(unit.id(), enemy.id()) )
+	        		{
+	        			System.out.println("Attack!!!! "+unit +" "+enemy);
+	    				gc.attack(unit.id(), enemy.id());
+	        		}
+	        	}
+	        	
+            	
+            }
+            for ( Unit unit : rangers )
+            {
+            	
+            }
             
             // Submit the actions we've done, and wait for our next turn.
             gc.nextTurn();
         }
+    }
+    
+    public static boolean TryMoveToFieldDistance(Unit unit, DirectionField friendlyBuildingField, int distanceToKeepFromBuildings)
+    {
+    	MapLocation location = unit.location().mapLocation();
+    	DirectionField.Entry entry = friendlyBuildingField.entries[location.getX()][location.getY()];
+    	if ( entry.distance > distanceToKeepFromBuildings )
+    		return TryBugMove(unit, entry.direction);
+    	if ( entry.distance < distanceToKeepFromBuildings )
+    		return TryBugMove(unit, bc.bcDirectionOpposite(entry.direction));
+    	
+    	return false;
     }
     
     //Do one Knight
