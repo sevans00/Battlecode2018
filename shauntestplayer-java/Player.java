@@ -26,10 +26,8 @@ public class Player {
 	
 	public static ArrayList<Unit> enemies = new ArrayList<Unit>();
 	
-	public static MapLocation someMapLoc = null;
-    
 	
-	public static DirectionField karbomiteDirectionField;
+    
 	
     public static void main(String[] args) {
         // MapLocation is a data structure you'll use a lot.
@@ -41,16 +39,16 @@ public class Player {
         // This will eventually be fixed :/
         System.out.println("Opposite of " + Direction.North + ": " + bc.bcDirectionOpposite(Direction.North));
         
+        
         // Connect to the manager, starting the game
         gc = new GameController();
-        
-        // Direction is a normal java enum.
-        Direction[] directions = Direction.values();
         
         friendlyTeam = gc.team();
 		if (friendlyTeam == Team.Blue)
 		    enemyTeam = Team.Red;
         
+
+		//Setup Direction Fields:
 		PlanetMap earthMap = gc.startingMap(Planet.Earth);
 		VecUnit initialUnits = earthMap.getInitial_units();
 		ArrayList<MapLocation> initialUnitLocations = new ArrayList<MapLocation>();
@@ -63,8 +61,15 @@ public class Player {
 		
 		DirectionField startingUnitLocationField = new DirectionField(earthMap);
 		startingUnitLocationField.SetupDirectionFieldTowards(initialUnitLocations);
+		
+		WeightedField initialKarbomiteField = new WeightedField(earthMap);
+		initialKarbomiteField.SetupDirectionFieldTowardsKarbomite();
         
-        while (true) {
+		
+		//Main Turn Loop:
+        while (true) 
+        {
+        	
         	System.out.println("Current round: "+gc.round());
             // VecUnit is a class that you can think of as similar to ArrayList<Unit>, but immutable.
             VecUnit units = gc.myUnits();
@@ -107,28 +112,27 @@ public class Player {
 				default:
 					break;
 				}
-
-            	if ( someMapLoc == null && unit.location().isOnMap() )
-            		someMapLoc = unit.location().mapLocation();
             }
-            //End units arraylist population
+            //End basic units arraylist population
             
             //Sense enemies:
-            if ( someMapLoc != null )
+        	VecUnit enemyVecUnit = gc.units();
+        	System.out.println("Enemies sensed:" + enemyVecUnit.size());
+            for ( int ii = 0; ii < enemyVecUnit.size(); ii++ )
             {
-            	VecUnit enemyVecUnit = gc.units();
-            	System.out.println("Enemies sensed:" + enemyVecUnit.size());
-                for ( int ii = 0; ii < enemyVecUnit.size(); ii++ )
-                {
-                	Unit enemy = enemyVecUnit.get(ii);
-                	if ( enemy.team() == enemyTeam && enemy.location().isOnMap() )
-                		enemies.add(enemy);
-                }
+            	Unit enemy = enemyVecUnit.get(ii);
+            	if ( enemy.team() == enemyTeam && enemy.location().isOnMap() )
+            		enemies.add(enemy);
             }
             
+            //Enemy Field:
+            DirectionField enemyField = new DirectionField(earthMap);
+            enemyField.SetupDirectionFieldTowardsUnits(enemies);
             
             
-            //Do catchup section:
+            
+            
+            //Do catchup / initial section: (to be replaced by better stuff later)
             
             //Minimum number of workers:
             if ( workers.size() < 5 && gc.karbonite() > bc.bcUnitTypeReplicateCost(UnitType.Worker) )
@@ -202,6 +206,10 @@ public class Player {
 			}
             
             
+            for (Unit unit : mages)
+            {
+            	DoKnight(unit);
+            }
             
             //Workers:
             for (Unit unit : workers) 
@@ -284,6 +292,24 @@ public class Player {
     }
     
     
+    //Do miners
+    public static void DoWorkers_Miners(ArrayList<Unit> workers_miners, WeightedField initialKarbomiteField)
+    {
+    	for ( Unit unit : workers_miners )
+    	{
+        	if ( !unit.location().isOnMap() )
+        		continue;
+    		
+        	MapLocation location = unit.location().mapLocation();
+        	WeightedField.Entry entry = initialKarbomiteField.entries[location.getX()][location.getY()];
+        	if ( entry.direction != Direction.Center)
+        	{
+        		TryMoveLoose(unit, entry.direction, 2);
+        	}
+        	DoWorkerHarvest(unit);
+    	}
+    }
+    
     //Do one Worker
     public static boolean DoWorker(Unit unit)
     {
@@ -305,6 +331,7 @@ public class Player {
     			DoWorkerRepairBuild(unit, closestFactoryNeedsHealing);
     		}
     	}
+    	//Might as well!
     	DoWorkerHarvest(unit);
     	
     	DoRandomMove(unit);
@@ -314,6 +341,11 @@ public class Player {
     
     public static boolean DoWorkerHarvest(Unit unit)
     {
+    	if ( gc.canHarvest(unit.id(), Direction.Center))
+		{
+			gc.harvest(unit.id(), Direction.Center);
+			return true;
+		}
     	for ( Direction direction : Direction.values())
     	{
     		if ( gc.canHarvest(unit.id(), direction))

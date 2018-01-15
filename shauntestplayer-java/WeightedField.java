@@ -10,11 +10,11 @@ import bc.*;
 
 
 
-public class DirectionField {
+public class WeightedField {
 	
 	public class Entry
 	{
-		public int distance = -1;
+		public int distance = Integer.MAX_VALUE;
 		public Direction direction = Direction.Center;
 		public MapLocation mapLocation = null;
 		
@@ -29,7 +29,7 @@ public class DirectionField {
 	public int height;
 	public Entry[][] entries;
 	
-	public DirectionField(PlanetMap map)
+	public WeightedField(PlanetMap map)
 	{
 		this.map = map;
 		this.width = (int) map.getWidth();
@@ -48,32 +48,30 @@ public class DirectionField {
 		}
 	}
 	
-	public void SetupDirectionFieldTowardsUnits( ArrayList<Unit> units)
-	{
-		ArrayList<MapLocation> targets = new ArrayList<MapLocation>();
-		for ( Unit unit : units)
-		{
-			targets.add(unit.location().mapLocation());
-		}
-		SetupDirectionFieldTowards(targets);
-	}
-	
-	public void SetupDirectionFieldTowards( ArrayList<MapLocation> targets)
+	public void SetupDirectionFieldTowardsKarbomite()
 	{
 		Queue<Entry> locationStack = new LinkedList<Entry>();
-		for(MapLocation target : targets)
+		for(int ii = 0; ii < width; ii++ )
 		{
-			Entry entry = entries[target.getX()][target.getY()];
-			entry.distance = 0;
-			locationStack.add(entry);
+			for(int jj = 0; jj < height; jj++ )
+			{
+				Entry entry = entries[ii][jj]; 
+				MapLocation location = entry.mapLocation;
+				if ( map.initialKarboniteAt(location) > 0)
+				{
+					entry.distance = (int) map.initialKarboniteAt(location);
+					locationStack.add(entry);
+				}
+			}
 		}
+		
 		
 		Entry target;
 		while(!locationStack.isEmpty())
 		{
 			target = locationStack.poll();
 			
-			int newDistance = target.distance + 1;
+			int newDistance = target.distance - 1;
 			
 			//Evaluate all locations adjacent to the target:
 			for (Direction direction : Direction.values())
@@ -81,21 +79,20 @@ public class DirectionField {
 				Direction directionToTarget = bc.bcDirectionOpposite(direction);
 				MapLocation testLocation = target.mapLocation.add(direction);
 				
-				newDistance = (int) (target.distance + target.mapLocation.distanceSquaredTo(testLocation));
-				
+				newDistance = (int) (target.distance - target.mapLocation.distanceSquaredTo(testLocation));
 				
 				if ( !map.onMap(testLocation) || map.isPassableTerrainAt(testLocation) == 0) //We've gone off the map!
 					continue;
 				
 				Entry testEntry = entries[testLocation.getX()][testLocation.getY()];
 				
-				if ( testEntry.distance == -1 ) //We haven't tested this square!
+				if ( testEntry.distance == Integer.MAX_VALUE ) //We haven't tested this square!
 				{
 					testEntry.direction = directionToTarget;
 					testEntry.distance = newDistance;
 					locationStack.add(testEntry);
 				}
-				if ( testEntry.distance > newDistance ) //We've evaluated this one already, but we found a shortcut!
+				if ( testEntry.distance < newDistance ) //We've evaluated this one already, but we found a shortcut!
 				{
 					testEntry.distance = newDistance;
 					testEntry.direction = directionToTarget;
