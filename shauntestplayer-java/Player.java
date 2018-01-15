@@ -208,16 +208,16 @@ public class Player {
 				}
 				
 				if ( Math.random() < 0.5f ){
-					if ( gc.canProduceRobot(unit.id(), UnitType.Knight))
+					if ( gc.canProduceRobot(unit.id(), UnitType.Ranger))
 					{
-						gc.produceRobot(unit.id(), UnitType.Knight);
+						gc.produceRobot(unit.id(), UnitType.Ranger);
 	                    System.out.println("produced a knight!");
 	                    continue;
 					}
 				} else {
-					if ( gc.canProduceRobot(unit.id(), UnitType.Knight))
+					if ( gc.canProduceRobot(unit.id(), UnitType.Ranger))
 					{
-						gc.produceRobot(unit.id(), UnitType.Knight);
+						gc.produceRobot(unit.id(), UnitType.Ranger);
 	                    System.out.println("produced a ranger!");
 	                    continue;
 					}
@@ -245,16 +245,15 @@ public class Player {
             
             //Defensive:
             ArrayList<Unit> defensiveKnights = new ArrayList<Unit>();
-            for( Unit unit : knights )
+            for( Unit unit : rangers )
             {
             	if ( unit.location().isOnMap() )
             		continue;
             	defensiveKnights.add(unit);
             }
             
-            int numKnights = knights.size();
-            int distanceToKeepFromBuildings = 4;
-            for ( Unit unit : knights ) 
+            int distanceToKeepFromBuildings = 5;
+            for ( Unit unit : defensiveKnights ) 
             {
             	Unit enemy = GetClosestUnitFrom(unit, enemies);
 	        	if ( enemy == null )
@@ -266,7 +265,7 @@ public class Player {
 	        	
 	        	//How close is the enemy?
 	        	int enemyDistance = (int) unit.location().mapLocation().distanceSquaredTo(enemy.location().mapLocation());
-	        	if ( enemyDistance <= 50 + 2 )
+	        	if ( enemyDistance <= 50 + 2 || enemyDistance <= unit.rangerCannotAttackRange() )
 	        	{
 	        		//Charge!
 		        	TryMoveTowards(unit, enemy); //TODO: Calculate this for all
