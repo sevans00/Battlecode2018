@@ -97,8 +97,8 @@ public class Player {
                 if ( unit.location().isOnMap() )
                 	friendlyUnitsOnMap.add(unit);
                 
-            	if ( !unit.location().isOnMap() )
-            		continue;
+            	//if ( !unit.location().isOnMap() )
+            		//continue;
                 
                 switch (unit.unitType()) {
 				case Factory:
@@ -247,7 +247,7 @@ public class Player {
             ArrayList<Unit> defensiveKnights = new ArrayList<Unit>();
             for( Unit unit : rangers )
             {
-            	if ( unit.location().isOnMap() )
+            	if ( !unit.location().isOnMap() )
             		continue;
             	defensiveKnights.add(unit);
             }
