@@ -26,7 +26,7 @@ public class Player {
 	
 	public static ArrayList<Unit> enemies = new ArrayList<Unit>();
 	public static ArrayList<MapLocation> enemyLocations = new ArrayList<MapLocation>();
-	
+	public static DirectionField enemyField;
 	
     
 	
@@ -42,8 +42,8 @@ public class Player {
         
 		
 		//Setup Direction Fields:
-		PlanetMap earthMap = gc.startingMap(gc.planet());
-		VecUnit initialUnits = earthMap.getInitial_units();
+		PlanetMap planetMap = gc.startingMap(gc.planet());
+		VecUnit initialUnits = planetMap.getInitial_units();
 		ArrayList<MapLocation> initialEnemyUnitLocations = new ArrayList<MapLocation>();
 		for(int ii = 0; ii < initialUnits.size(); ii ++)
     	{
@@ -52,10 +52,10 @@ public class Player {
 			}
     	}
 		
-		DirectionField startingUnitLocationField = new DirectionField(earthMap);
+		DirectionField startingUnitLocationField = new DirectionField(planetMap);
 		startingUnitLocationField.SetupDirectionFieldTowards(initialEnemyUnitLocations);
 		
-		WeightedField initialKarbomiteField = new WeightedField(earthMap);
+		WeightedField initialKarbomiteField = new WeightedField(planetMap);
 		initialKarbomiteField.SetupDirectionFieldTowardsKarbomite();
         
 		
@@ -142,16 +142,15 @@ public class Player {
         	}
             
             //Enemy Field:
-            DirectionField enemyField = new DirectionField(earthMap);
+            enemyField = new DirectionField(planetMap);
             enemyField.SetupDirectionFieldTowards(enemyLocations);
-            
             
             
             //Buildings:
             friendlyBuildings.addAll(factories);
             friendlyBuildings.addAll(rockets);
             //Building field:
-            DirectionField friendlyBuildingField = new DirectionField(earthMap);
+            DirectionField friendlyBuildingField = new DirectionField(planetMap);
             friendlyBuildingField.SetupDirectionFieldTowardsUnits(friendlyBuildings);
             
             
@@ -303,17 +302,25 @@ public class Player {
             	DoWorker(unit);
             }
             
-            /*
-            //Regular aggression:
+            //*
+            //Aggression:
             
             //Knights:
             for (Unit unit : knights) {
-            	DoKnight(unit);
+            	Unit enemy = GetClosestUnitFrom(unit, enemies);
+            	DoRanger(unit, enemies, enemyField, enemy);
 			}
             for ( Unit unit : rangers) {
-            	DoRanger(unit);
+            	Unit enemy = GetClosestUnitFrom(unit, enemies);
+            	DoRanger(unit, enemies, enemyField, enemy); //Target todo
             }
-            */
+            
+            //enemyField.DebugPrintDistances();
+            
+            
+            /*/
+            
+            
             
             //Defensive:
             ArrayList<Unit> defensiveKnights = new ArrayList<Unit>();
@@ -335,19 +342,7 @@ public class Player {
 	        		continue;
 	        	}
 	        	TryMoveToFieldDistance(unit, friendlyBuildingField, distanceToKeepFromBuildings);
-	        	/*
-	        	//How close is the enemy?
-	        	int enemyDistance = (int) unit.location().mapLocation().distanceSquaredTo(enemy.location().mapLocation());
-	        	if ( enemyDistance <= 50 + 2 || enemyDistance <= unit.rangerCannotAttackRange() )
-	        	{
-	        		//Charge!
-		        	TryMoveTowards(unit, enemy); //TODO: Calculate this for all
-	        	}
-	        	else 
-	        	{
-	        		TryMoveToFieldDistance(unit, friendlyBuildingField, distanceToKeepFromBuildings);
-	        	}
-	        	*/
+	        	
 	        	
 	        	if ( unit.location().mapLocation().isWithinRange(unit.attackRange(), enemy.location().mapLocation() ) )
 	        	{
@@ -363,6 +358,7 @@ public class Player {
             {
             	
             }
+            */
             
             // Submit the actions we've done, and wait for our next turn.
             gc.nextTurn();
@@ -370,9 +366,88 @@ public class Player {
     }
     
     
+    //Move along field:
+    public static boolean TryMoveAlongField(Unit unit, DirectionField field, Unit target, long minDistance)
+    {
+    	if ( !unit.location().isOnMap() )
+    		return false;
+    	if ( target == null )
+    		return TryMoveAlongField(unit, field);
+    	
+    	long distance = unit.location().mapLocation().distanceSquaredTo(target.location().mapLocation());
+    	if (distance < minDistance)
+    	{
+    		DirectionField.Entry entry = field.getEntryAt(unit);
+        	if ( TryMoveStrict(unit, bc.bcDirectionOpposite(entry.direction) ) )
+        		return true;
+        	ArrayList<DirectionField.Entry> entries = field.getAdjacentEntriesTo(unit);
+        	for(DirectionField.Entry testEntry : entries )
+        	{
+        		Direction direction = unit.location().mapLocation().directionTo(testEntry.mapLocation);
+        		if ( testEntry.distance >= entry.distance )
+        		{
+        			boolean result = TryMoveStrict(unit, direction);
+        			if ( result )
+        				return true;
+        		}
+        	}
+    	}
+    	
+    	DirectionField.Entry entry = field.getEntryAt(unit);
+    	if ( TryMoveStrict(unit, entry.direction) )
+    		return true;
+    	ArrayList<DirectionField.Entry> entries = field.getAdjacentEntriesTo(unit);
+    	for(DirectionField.Entry testEntry : entries )
+    	{
+    		Direction direction = unit.location().mapLocation().directionTo(testEntry.mapLocation);
+    		if ( testEntry.distance <= entry.distance )
+    		{
+    			boolean result = TryMoveStrict(unit, direction);
+    			if ( result )
+    				return true;
+    		}
+    	}
+    	
+    	/*
+    	for(DirectionField.Entry testEntry : entries )
+    	{
+    		Direction direction = unit.location().mapLocation().directionTo(testEntry.mapLocation);
+    		if ( testEntry.distance <= entry.distance )
+    		{
+    			TryMoveStrict(unit, direction);
+    		}
+    	}*/
+    	return false;
+    }
+    
+    
     public static boolean TryMoveAlongField(Unit unit, DirectionField field)
     {
+    	if ( !unit.location().isOnMap() )
+    		return false;
     	
+    	DirectionField.Entry entry = field.getEntryAt(unit);
+    	if ( TryMoveStrict(unit, entry.direction) )
+    		return true;
+    	ArrayList<DirectionField.Entry> entries = field.getAdjacentEntriesTo(unit);
+    	for(DirectionField.Entry testEntry : entries )
+    	{
+    		Direction direction = unit.location().mapLocation().directionTo(testEntry.mapLocation);
+    		if ( testEntry.distance < entry.distance )
+    		{
+    			TryMoveStrict(unit, direction);
+    		}
+    	}
+    	
+    	/*
+    	for(DirectionField.Entry testEntry : entries )
+    	{
+    		Direction direction = unit.location().mapLocation().directionTo(testEntry.mapLocation);
+    		if ( testEntry.distance <= entry.distance )
+    		{
+    			TryMoveStrict(unit, direction);
+    		}
+    	}*/
     	return false;
     }
     
@@ -389,8 +464,54 @@ public class Player {
     	return false;
     }
     
+    
+    public static boolean DoKnight(Unit unit, ArrayList<Unit> enemies, DirectionField enemyField, Unit enemy)
+    {
+    	if ( !unit.location().isOnMap() )
+    		return false;
+    	
+    	DirectionField.Entry entry = enemyField.getEntryAt(unit);
+    	TryMoveAlongField(unit, enemyField, enemy, 0); //TODO: Tweak distance
+
+    	if ( enemy == null)
+    		return false;
+    	
+    	if ( unit.location().mapLocation().isWithinRange(unit.attackRange(), enemy.location().mapLocation() ) )
+    	{
+    		if ( gc.isAttackReady(unit.id()) && gc.canSenseUnit(enemy.id()) && gc.canAttack(unit.id(), enemy.id()) )
+    		{
+				gc.attack(unit.id(), enemy.id());
+    		}
+    	}
+    	
+    	return false;
+    }
+
+    public static boolean DoRanger(Unit unit, ArrayList<Unit> enemies, DirectionField enemyField, Unit enemy)
+    {
+    	if ( !unit.location().isOnMap() )
+    		return false;
+    	
+    	if ( enemy != null && unit.location().mapLocation().isWithinRange(unit.attackRange(), enemy.location().mapLocation() ) )
+    	{
+    		if ( gc.isAttackReady(unit.id()) && gc.canSenseUnit(enemy.id()) && gc.canAttack(unit.id(), enemy.id()) )
+    		{
+				gc.attack(unit.id(), enemy.id());
+				return true;
+    		}
+    	}
+    	TryMoveAlongField(unit, enemyField, enemy, 0); //TODO: Tweak distance
+    	
+    	return false;
+    }
+    
+    
+    
+    
+    
+     //BASIC::::::::::::::::::::
     //Do one Knight
-    public static boolean DoKnight(Unit unit)
+    public static boolean DoBasicKnight(Unit unit)
     {
     	if ( !unit.location().isOnMap() )
     		return false;
@@ -415,8 +536,8 @@ public class Player {
     	//TODO: add in complicated code that backs away after firing
     	return DoMoveTowardsEnemySpawn(unit);
     }
-    
-    public static boolean DoRanger(Unit unit)
+    //Basic
+    public static boolean DoBasicRanger(Unit unit)
     {
     	if ( !unit.location().isOnMap() )
     		return false;
@@ -545,14 +666,14 @@ public class Player {
     
     public static Unit GetClosestUnitFrom(Unit unit, ArrayList<Unit> units)
     {
-    	if ( units.size() <= 0 )
+    	if ( units.size() <= 0 || !unit.location().isOnMap() )
     		return null;
     	
-    	Unit closestUnit = units.get(0);
-    	long closestDistance = unit.location().mapLocation().distanceSquaredTo(closestUnit.location().mapLocation());
+    	Unit closestUnit = null;
+    	long closestDistance = Long.MAX_VALUE;
     	Unit testUnit;
     	long testDistance;
-    	for( int ii = 1; ii < units.size(); ii++ )
+    	for( int ii = 0; ii < units.size(); ii++ )
     	{
     		testUnit = units.get(ii);
     		if ( !testUnit.location().isOnMap() )

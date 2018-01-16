@@ -102,6 +102,26 @@ public class DirectionField {
 		}
 	}
 	
+	public Entry getEntryAt(Unit unit)
+	{
+		if ( !unit.location().isOnMap() )
+			return null;
+		return entries[unit.location().mapLocation().getX()][unit.location().mapLocation().getY()];
+	}
+	
+	public ArrayList<Entry> getAdjacentEntriesTo(Unit unit)
+	{
+		ArrayList<Entry> adjacentEntries = new ArrayList<Entry>();
+		for (Direction direction : Direction.values())
+		{
+			MapLocation testLocation = unit.location().mapLocation().add(direction);
+			if ( !map.onMap(testLocation) || map.isPassableTerrainAt(testLocation) == 0) //We've gone off the map!
+				continue;
+			adjacentEntries.add(entries[testLocation.getX()][testLocation.getY()]);
+		}
+		return adjacentEntries;
+	}
+	
 	public void DebugPrintDistances()
 	{
 		System.out.println();
