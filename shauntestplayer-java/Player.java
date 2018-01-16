@@ -1,6 +1,8 @@
 // import the API.
 // See xxx for the javadocs.
 import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.Queue;
 import java.util.Random;
 
 import bc.*;
@@ -14,6 +16,8 @@ public class Player {
 	
 	public static Team friendlyTeam = Team.Red;
 	public static Team enemyTeam = Team.Blue;
+	
+	public static Direction[] Direction_Orthogonals;
 	
 	public static ArrayList<Unit> factories = new ArrayList<Unit>();
 	public static ArrayList<Unit> factoriesToHeal = new ArrayList<Unit>();
@@ -31,7 +35,9 @@ public class Player {
     
 	
     public static void main(String[] args) {
-        
+    	Direction_Orthogonals = new Direction[] {Direction.North, Direction.East, Direction.South, Direction.West};
+    	
+    	
         // Connect to the manager, starting the game
         gc = new GameController();
         
@@ -45,10 +51,13 @@ public class Player {
 		PlanetMap planetMap = gc.startingMap(gc.planet());
 		VecUnit initialUnits = planetMap.getInitial_units();
 		ArrayList<MapLocation> initialEnemyUnitLocations = new ArrayList<MapLocation>();
+		ArrayList<MapLocation> initialFriendlyUnitLocations = new ArrayList<MapLocation>();
 		for(int ii = 0; ii < initialUnits.size(); ii ++)
     	{
 			if (initialUnits.get(ii).team() == enemyTeam) {
 				initialEnemyUnitLocations.add(initialUnits.get(ii).location().mapLocation());
+			} else {
+				initialFriendlyUnitLocations.add(initialUnits.get(ii).location().mapLocation());
 			}
     	}
 		
@@ -95,6 +104,8 @@ public class Player {
                 switch (unit.unitType()) {
 				case Factory:
 					factories.add(unit);
+					if ( unit.health() < unit.maxHealth() )
+	            		factoriesToHeal.add(unit);
 					break;
 				case Healer:
 					healers.add(unit);
@@ -168,6 +179,7 @@ public class Player {
             	}
             }
             
+            /*
             //Minimum number of rockets:
             if ( gc.karbonite() > bc.bcUnitTypeBlueprintCost(UnitType.Rocket) && rockets.size() < 2 && gc.planet() == Planet.Earth)
             {
@@ -182,6 +194,7 @@ public class Player {
             		}
                 }
             }
+            */
             //Rockets:
             for ( Unit unit : rockets )
             {
@@ -233,6 +246,45 @@ public class Player {
             
             System.out.println("Factories: "+factories.size()+" on "+gc.planet());
             
+            
+            
+
+            //Factory Blueprint:
+            if (gc.planet() == Planet.Earth) //Can only build factories on earth
+            {
+	            //Worker Roles:
+	            ArrayList<Unit> workers_builders = new ArrayList<Unit>();
+	            ArrayList<Unit> workers_miners = new ArrayList<Unit>();
+	            if ( factories.size() < 4) //Get 4 up and running ASAP //TODO: More
+	            {
+	            	for(int ii = 0; ii < workers.size(); ii++)
+	            	{
+	            		if ( ii < workers.size() / 2) {
+	            			workers_builders.add(workers.get(ii));
+	            		} else {
+	            			workers_miners.add(workers.get(ii));
+	            		}
+	            	}
+	            } else {
+	            	for(int ii = 0; ii < workers.size(); ii++)
+	            	{
+	            		if ( ii == workers.size() - 1) {
+	            			workers_builders.add(workers.get(ii));
+	            		} else {
+	            			workers_miners.add(workers.get(ii));
+	            		}
+	            	}
+	            }
+	            
+            	MapLocation factoryStartPoint = initialFriendlyUnitLocations.get(0);
+            	
+            	DoWorkers_Miners(workers_miners, initialKarbomiteField);
+            	DoWorkers_Builders(planetMap, workers_builders, factoryStartPoint, factories, rockets, friendlyBuildingField);
+            }
+            
+            
+            
+            /*
             //Minimum number of factories:
             if (gc.karbonite() > bc.bcUnitTypeBlueprintCost(UnitType.Factory)
             		&& (factories.size() < 4 || gc.karbonite() > 300 ) )
@@ -249,15 +301,15 @@ public class Player {
             		}
                 }
             }
+            */
+            
+            
             
             
             
             //Factories:
             for (Unit unit : factories) 
             {
-            	if ( unit.health() < unit.maxHealth() )
-            		factoriesToHeal.add(unit);
-            	
             	//Ungarrison:
 				VecUnitID garrison = unit.structureGarrison();
 				if ( garrison.size() > 0 )
@@ -296,11 +348,13 @@ public class Player {
 			}
             
             
-            //Workers:
+            /*
+            //OLD Workers:
             for (Unit unit : workers) 
             {
             	DoWorker(unit);
             }
+            */
             
             //*
             //Aggression:
@@ -588,6 +642,91 @@ public class Player {
         	DoWorkerHarvest(unit);
     	}
     }
+    public static void DoWorkers_Builders(
+    		PlanetMap map,
+    		ArrayList<Unit> workers, 
+    		MapLocation initialFactoryLocation, 
+    		ArrayList<Unit> factories, 
+    		ArrayList<Unit> rockets, 
+    		DirectionField friendlyBuildingField)
+    {
+    	
+    	
+    	
+    	for ( Unit unit : workers )
+    	{
+    		if ( !unit.location().isOnMap() )
+    			continue;
+    		
+    		//Is there a factory we need to build?
+        	Unit closestFactoryNeedsHealing = GetClosestUnitFrom(unit, factoriesToHeal);
+        	if ( closestFactoryNeedsHealing != null )
+        	{
+        		if ( unit.location().mapLocation().isWithinRange(unit.abilityRange(), closestFactoryNeedsHealing.location().mapLocation()) )
+        		{
+        			DoWorkerRepairBuild(unit, closestFactoryNeedsHealing);
+        		}
+        		else
+        		{
+        			TryMoveTowards(unit, closestFactoryNeedsHealing);
+        			DoWorkerRepairBuild(unit, closestFactoryNeedsHealing);
+        		}
+        		continue;
+        	}
+    		
+    		MapLocation nextFactoryLocation = GetNextFactoryLocation(map, initialFactoryLocation, factories);
+    		if ( nextFactoryLocation != null )
+    		{
+    			TryMoveNextTo(unit, nextFactoryLocation);
+    			Direction direction = unit.location().mapLocation().directionTo(nextFactoryLocation);
+    			long distance = unit.location().mapLocation().distanceSquaredTo(nextFactoryLocation);
+    			if ( distance == 1 || distance == 2)
+    			{
+    				if ( gc.canBlueprint(unit.id(), UnitType.Factory, direction) )
+    				{
+    					gc.blueprint(unit.id(), UnitType.Factory, direction);
+    				}
+    			}
+    		}
+    		else
+    		{
+    			System.out.println("Could not find a next factory location!");
+    		}
+    	}
+    	
+    }
+    public static MapLocation GetNextFactoryLocation(PlanetMap map, MapLocation initialFactoryLocation, ArrayList<Unit> factories)
+    {
+    	if ( factories.size() == 0 )
+    		return initialFactoryLocation;
+    	
+    	Unit unitAtTestLocation = null;
+    	MapLocation testLocation = null;
+    	ArrayList<MapLocation> potentialFactoryLocations = new ArrayList<MapLocation>();
+    	for ( Unit factory : factories )
+    	{
+    		System.out.println("Orthogonals:"+Direction_Orthogonals);
+    		for ( Direction direction : Direction_Orthogonals)
+    		{
+    			System.out.println("\ttesting:"+direction);
+    			testLocation = factory.location().mapLocation().add(direction).add(direction);
+    			if (!map.onMap(testLocation) || map.isPassableTerrainAt(testLocation) == 0 )
+    				continue;
+    			System.out.println("\t on map");
+    			/*
+    			if ( gc.canSenseLocation(testLocation) && gc.hasUnitAtLocation(testLocation) )
+    			{
+    				System.out.println("\t  unit exists");
+	    			unitAtTestLocation = gc.senseUnitAtLocation(testLocation);
+	    			if (unitAtTestLocation != null || unitAtTestLocation.unitType() == UnitType.Factory)
+	    				continue;
+    			}*/
+    			return testLocation;
+    		}
+    	}
+    	return null;
+    }
+    
     
     //Do one Worker
     public static boolean DoWorker(Unit unit)
@@ -704,6 +843,26 @@ public class Player {
     	return TryBugMove(unit, direction);
     }
     
+    public static boolean TryMoveNextTo(Unit unit, MapLocation target)
+    {
+    	if ( !unit.location().isOnMap() )
+    		return false;
+    	Direction direction = unit.location().mapLocation().directionTo(target);
+    	long distance = unit.location().mapLocation().distanceSquaredTo(target);
+    	if ( distance == 0 )
+    	{
+    		for( Direction testDirection : Direction.values() )
+    		{
+    			if ( TryMoveLoose(unit, testDirection, 2) )
+    				return true;
+    		}
+    	}
+    	if ( distance == 1 || distance == 2 )
+    		return true;
+    	TryMoveLoose(unit, direction, 2);
+    	return false;
+    }
+    
     public static boolean TryMoveLoose(Unit unit, Direction direction, int tolerance)
     {
     	if ( !gc.isMoveReady(unit.id()))
@@ -712,7 +871,7 @@ public class Player {
     		return false;
     	Direction left = direction;
     	Direction right = direction;
-    	for ( int ii = 1; ii < tolerance; ii++)
+    	for ( int ii = 0; ii < tolerance; ii++)
     	{
     		left = bc.bcDirectionRotateLeft(left);
     		right = bc.bcDirectionRotateRight(right);
@@ -823,5 +982,7 @@ public class Player {
     	}
     	return null;
     }
+    
+    
     
 }
