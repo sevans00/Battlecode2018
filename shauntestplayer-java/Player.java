@@ -700,9 +700,15 @@ public class Player {
     	if ( factories.size() == 0 )
     		return initialFactoryLocation;
     	
+    	//Start evaluating locations based on distance:
+    	ArrayList<MapLocation> potentialFactoryLocations = new ArrayList<MapLocation>();
+    	
+    	
+    	
+    	
+    	
     	Unit unitAtTestLocation = null;
     	MapLocation testLocation = null;
-    	ArrayList<MapLocation> potentialFactoryLocations = new ArrayList<MapLocation>();
     	for ( Unit factory : factories )
     	{
     		System.out.println("Orthogonals:"+Direction_Orthogonals);
@@ -710,9 +716,27 @@ public class Player {
     		{
     			System.out.println("\ttesting:"+direction);
     			testLocation = factory.location().mapLocation().add(direction).add(direction);
-    			if (!map.onMap(testLocation) || map.isPassableTerrainAt(testLocation) == 0 )
+    			if (!map.onMap(testLocation) )
     				continue;
     			System.out.println("\t on map");
+    			if ( map.isPassableTerrainAt(testLocation) == 0 )
+    				continue;
+    			System.out.println("\t  passable terrain!");
+    			if ( !gc.canSenseLocation(testLocation) )
+    				continue;
+    			System.out.println("\t   can sense location!");
+    			if ( !gc.hasUnitAtLocation(testLocation))
+    				continue;
+    			System.out.println("\t    has unit at location!");
+    			try
+    			{
+    				unitAtTestLocation = gc.senseUnitAtLocation(testLocation);
+    				System.out.println("\t   unit exists "+unitAtTestLocation);
+    			} catch (Exception e) {
+					// TODO: handle exception
+    				System.out.println("Exception "+e);
+				}
+    			
     			/*
     			if ( gc.canSenseLocation(testLocation) && gc.hasUnitAtLocation(testLocation) )
     			{
