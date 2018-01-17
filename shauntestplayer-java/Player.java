@@ -32,7 +32,7 @@ public class Player {
 	public static ArrayList<MapLocation> enemyLocations = new ArrayList<MapLocation>();
 	public static DirectionField enemyField;
 	
-    
+    public static WeightedField initialKarbomiteField;
 	
     public static void main(String[] args) {
     	Direction_Orthogonals = new Direction[] {Direction.North, Direction.East, Direction.South, Direction.West};
@@ -64,8 +64,8 @@ public class Player {
 		DirectionField startingUnitLocationField = new DirectionField(planetMap);
 		startingUnitLocationField.SetupDirectionFieldTowards(initialEnemyUnitLocations);
 		
-		WeightedField initialKarbomiteField = new WeightedField(planetMap);
-		initialKarbomiteField.SetupDirectionFieldTowardsKarbomite();
+		initialKarbomiteField = new WeightedField(planetMap);
+		initialKarbomiteField.SetupDirectionFieldTowardsKarbomite(gc);
         
 		
 		gc.queueResearch(UnitType.Rocket);
@@ -244,10 +244,6 @@ public class Player {
             
             
             
-            System.out.println("Factories: "+factories.size()+" on "+gc.planet());
-            
-            
-            
 
             //Factory Blueprint:
             if (gc.planet() == Planet.Earth) //Can only build factories on earth
@@ -268,7 +264,7 @@ public class Player {
 	            } else {
 	            	for(int ii = 0; ii < workers.size(); ii++)
 	            	{
-	            		if ( ii == workers.size() - 1) {
+	            		if ( ii <= 2) {
 	            			workers_builders.add(workers.get(ii));
 	            		} else {
 	            			workers_miners.add(workers.get(ii));
@@ -278,30 +274,12 @@ public class Player {
 	            
             	MapLocation factoryStartPoint = initialFriendlyUnitLocations.get(0);
             	
-            	DoWorkers_Miners(workers_miners, initialKarbomiteField);
+            	DoWorkers_Miners(workers_miners);
             	DoWorkers_Builders(planetMap, workers_builders, factoryStartPoint, factories, rockets, friendlyBuildingField);
+            	
+            	initialKarbomiteField.DebugPrintDistances();
+            	initialKarbomiteField.DebugPrintDirections();
             }
-            
-            
-            
-            /*
-            //Minimum number of factories:
-            if (gc.karbonite() > bc.bcUnitTypeBlueprintCost(UnitType.Factory)
-            		&& (factories.size() < 4 || gc.karbonite() > 300 ) )
-            {
-                for (Unit unit : workers)
-                {
-            		Direction direction = getCanBlueprintDirection(unit, UnitType.Factory);
-            		if ( 	direction != null 
-            				&& gc.karbonite() > bc.bcUnitTypeBlueprintCost(UnitType.Factory) 
-            				&& gc.canBlueprint(unit.id(), UnitType.Factory, direction) )
-            		{
-            			gc.blueprint(unit.id(), UnitType.Factory, direction);
-            			break; //No reason why we can't build more
-            		}
-                }
-            }
-            */
             
             
             
@@ -317,7 +295,6 @@ public class Player {
 					Direction freeDirection = getNextUnloadDirection(unit);
 					if ( freeDirection != null )
 					{
-						System.out.println("Unloaded a unit!");
 						gc.unload(unit.id(), freeDirection);
 						continue;
 					}
@@ -626,7 +603,7 @@ public class Player {
     
     
     //Do miners
-    public static void DoWorkers_Miners(ArrayList<Unit> workers_miners, WeightedField initialKarbomiteField)
+    public static void DoWorkers_Miners(ArrayList<Unit> workers_miners)
     {
     	for ( Unit unit : workers_miners )
     	{
@@ -640,8 +617,16 @@ public class Player {
         		TryMoveLoose(unit, entry.direction, 2);
         	}
         	DoWorkerHarvest(unit);
+        	//Rescan:
+        	DoRescanOfKarbomite();
     	}
     }
+    public static void DoRescanOfKarbomite()
+    {
+    	initialKarbomiteField.SetupDirectionFieldTowardsKarbomite(gc);
+    }
+    
+    //Do Builders
     public static void DoWorkers_Builders(
     		PlanetMap map,
     		ArrayList<Unit> workers, 
@@ -650,9 +635,6 @@ public class Player {
     		ArrayList<Unit> rockets, 
     		DirectionField friendlyBuildingField)
     {
-    	
-    	
-    	
     	for ( Unit unit : workers )
     	{
     		if ( !unit.location().isOnMap() )
@@ -702,41 +684,23 @@ public class Player {
     	
     	//Start evaluating locations based on distance:
     	ArrayList<MapLocation> potentialFactoryLocations = new ArrayList<MapLocation>();
-    	
-    	
-    	
-    	
-    	
     	Unit unitAtTestLocation = null;
+    	
     	MapLocation testLocation = null;
     	for ( Unit factory : factories )
     	{
-    		System.out.println("Orthogonals:"+Direction_Orthogonals);
     		for ( Direction direction : Direction_Orthogonals)
     		{
-    			System.out.println("\ttesting:"+direction);
     			testLocation = factory.location().mapLocation().add(direction).add(direction);
+    			
     			if (!map.onMap(testLocation) )
     				continue;
-    			System.out.println("\t on map");
     			if ( map.isPassableTerrainAt(testLocation) == 0 )
     				continue;
-    			System.out.println("\t  passable terrain!");
     			if ( !gc.canSenseLocation(testLocation) )
     				continue;
-    			System.out.println("\t   can sense location!");
-    			if ( !gc.hasUnitAtLocation(testLocation))
+    			if ( gc.hasUnitAtLocation(testLocation))
     				continue;
-    			System.out.println("\t    has unit at location!");
-    			try
-    			{
-    				unitAtTestLocation = gc.senseUnitAtLocation(testLocation);
-    				System.out.println("\t   unit exists "+unitAtTestLocation);
-    			} catch (Exception e) {
-					// TODO: handle exception
-    				System.out.println("Exception "+e);
-				}
-    			
     			/*
     			if ( gc.canSenseLocation(testLocation) && gc.hasUnitAtLocation(testLocation) )
     			{
@@ -752,7 +716,7 @@ public class Player {
     }
     
     
-    //Do one Worker
+    //Do one Worker - old
     public static boolean DoWorker(Unit unit)
     {
     	if ( !unit.location().isOnMap() )

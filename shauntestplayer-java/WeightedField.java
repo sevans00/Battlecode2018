@@ -48,7 +48,7 @@ public class WeightedField {
 		}
 	}
 	
-	public void SetupDirectionFieldTowardsKarbomite()
+	public void SetupDirectionFieldTowardsKarbomite(GameController gc)
 	{
 		Queue<Entry> locationStack = new LinkedList<Entry>();
 		for(int ii = 0; ii < width; ii++ )
@@ -59,8 +59,21 @@ public class WeightedField {
 				MapLocation location = entry.mapLocation;
 				if ( map.initialKarboniteAt(location) > 0)
 				{
-					entry.distance = (int) map.initialKarboniteAt(location);
-					locationStack.add(entry);
+					boolean needsUpdating = false;
+					long karbonite;
+					long initialKarbonite = map.initialKarboniteAt(location);
+					karbonite = initialKarbonite;
+					if ( gc.canSenseLocation(location))
+					{
+						long sensedKarbomite = gc.karboniteAt(location);
+						karbonite = sensedKarbomite;
+					}
+					if ( karbonite < entry.distance ) {
+						entry.distance = (int) karbonite;
+						needsUpdating = true;
+					}
+					if ( needsUpdating )
+						locationStack.add(entry);
 				}
 			}
 		}
@@ -109,7 +122,10 @@ public class WeightedField {
 		{
 			for(int ii = 0; ii < width; ii++ )
 			{
-				System.out.print( String.format("%1$4s",entries[ii][jj].distance) );
+				if ( entries[ii][jj].distance == Integer.MAX_VALUE)
+					System.out.print( String.format("%1$4s", 999) );
+				else
+					System.out.print( String.format("%1$4s", entries[ii][jj].distance) );
 			}
 			System.out.println();
 		}
