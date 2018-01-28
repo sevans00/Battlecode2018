@@ -14,10 +14,15 @@ def random_key(length):
 
 def extract_s3_bucket(bucket, key, destination_directory):
     obj = bucket.Object(key)
-    with io.BytesIO(obj.get()["Body"].read()) as tf:
-        tf.seek(0)
-        with zipfile.ZipFile(tf, mode='r') as zipf:
-            zipf.extractall(path=destination_directory)
+    try:
+        with io.BytesIO(obj.get()["Body"].read()) as tf:
+            tf.seek(0)
+            with zipfile.ZipFile(tf, mode='r') as zipf:
+                zipf.extractall(path=destination_directory)
+        return True
+    except Exception as e:
+        print("Invalid s3 key.")
+        return False
 
 
 def dos2unix(directory):
@@ -26,8 +31,18 @@ def dos2unix(directory):
     pathlist += list(Path(directory).glob("**/*.sh"))
 
     for path in pathlist:
-        with open(str(path), 'r') as f:
-            x = f.read()
+        try:
+            with open(str(path), 'r') as f:
+                x = f.read()
+        except UnicodeDecodeError as e:
+            try:
+                print("Trying Latin encoding...")
+                with open(str(path), 'r', encoding='ISO-8859-1') as f:
+                    x = f.read()
+            except Exception as e2:
+                print(e2)
+                x = 'echo "Unable to read file (please encode as unicode)."'
+
         with open(str(path), 'w') as f:
             f.write(x.replace('\r\n', '\n'))
 
@@ -47,7 +62,8 @@ class AbstractPlayer:
             os.makedirs(working_dir)
 
         if s3_bucket:
-            extract_s3_bucket(s3_bucket, s3_key, self.working_dir)
+            if not extract_s3_bucket(s3_bucket, s3_key, self.working_dir):
+                raise ValueError("Incorrect s3 key provided.")
         elif local_dir:
             # print("Copying files from {} to {}".format(os.path.abspath(local_dir), self.working_dir))
             try:

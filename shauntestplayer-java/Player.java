@@ -179,7 +179,7 @@ public class Player {
             	}
             }
             
-            /*
+            //*
             //Minimum number of rockets:
             if ( gc.karbonite() > bc.bcUnitTypeBlueprintCost(UnitType.Rocket) && rockets.size() < 2 && gc.planet() == Planet.Earth)
             {
@@ -194,7 +194,7 @@ public class Player {
             		}
                 }
             }
-            */
+            //*/
             //Rockets:
             for ( Unit unit : rockets )
             {
